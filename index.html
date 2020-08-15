@@ -32,6 +32,23 @@ a { text-decoration: none }
 .comments {
 	white-space: pre-wrap;
 }
+
+.output {
+	display: flex;
+}
+
+#htmlout {
+	flex:5;
+}
+#filterList {
+	flex:1;
+} 
+
+label {
+	display: inline;
+	cursor: pointer;
+}
+
 </style>
 </head>
 <body>
@@ -53,6 +70,7 @@ a { text-decoration: none }
 </div>
 </pre>
 <pre id="out"></pre>
+<div class="output">
 <div id="htmlout">
 	<!-- <div class="defect">
 		<h2>Defect ID:<strong></strong> Summary</h2>
@@ -64,10 +82,16 @@ a { text-decoration: none }
 		<hr/>
 	</div> -->
 </div>
+<div id="filterList">
+	<input type="checkbox"> Assigned 1 <br />
+	<input type="checkbox"> Assigned 2 <br />
+	<input type="checkbox"> Assigned 3 <br />
+</div>
+</div>
 </div>
 
 <script src="dist/cpexcel.js"></script>
-<script src="dist/shim.in.js"></script>
+<script src="dist/shim.min.js"></script>
 <script src="dist/xlsx.full.min.js"></script>
 <script>
 /*jshint browser:true */
@@ -235,8 +259,49 @@ var do_file = (function() {
 })();
 
 
+
+//making it global so i an override this via console
+
+var myIndex = [0,5,2,6,7,15,19]		//old index [11, 14, 13, 16, 17, 15, 10]
+
+var INDEX = {
+	DEFECTID: myIndex[0],
+	SUMMARY:  myIndex[1],
+	STATUS:  myIndex[2],
+	ASSIGNED:  myIndex[3],
+	DETECTED:  myIndex[4],
+	DESC: myIndex[5],
+	COMMENTS: myIndex[6]
+
+}
+
+var template = ``
+
+var filterIndex = [INDEX.STATUS, INDEX.ASSIGNED]
+
+var filteredMap = new Array(filterIndex.length)
+
+var assignedList = new Set()
+var statusList = new Set()
+
+
+var parsedJSON = localStorage.getItem("parsedJSON") || ""
+
+var selStatus = new Set()
+var selAssigned = new Set()
+
+
 function presentReadable(jsonOut) {
 
+	localStorage.setItem("parsedJSON", jsonOut)
+	parsedJSON = jsonOut
+	assignedList = new Set()
+	statusList = new Set()
+	populateContent(parsedJSON)	
+	filterOptions(statusList, assignedList)
+}
+
+function populateContent(jsonOut){
 	var out = document.getElementById('htmlout');
 	var outputstr = ""
 	var sheet1 = JSON.parse(jsonOut).Sheet1
@@ -247,37 +312,127 @@ function presentReadable(jsonOut) {
 	});
 	out.innerHTML = outputstr;
 	document.querySelectorAll("a").forEach(el => el.href ="javascript:;") //disable any links
-
 }
+
 
 function defect(row){
 
 	// ________________________________________
-	var myIndex = [11, 14, 13, 16, 17, 15, 10]
+	// filteredMap = new Array(filterIndex.length)
+	// filterIndex.forEach((el, i) => {
+ //  		filteredMap[i] = []
+	// })
 
-	var INDEX = {
-		DEFECTID: myIndex[0],
-		SUMMARY:  myIndex[1],
-		STATUS:  myIndex[2],
-		ASSIGNED:  myIndex[3],
-		DETECTED:  myIndex[4],
-		DESC: myIndex[5],
-		COMMENTS: myIndex[6]
+	var proceed = true
+	var condition = localStorage.getItem("orOrand") || 0
+	var statusMatch = true
+	var assignedMatch = true
 
+	if (selStatus.size) {
+		statusMatch = selStatus.has(row[INDEX.STATUS]) == true 
+		// console.log(row[INDEX.STATUS], selStatus , proceed)
 	}
 
-	var template = `
-	<div class="defect">
-		<h2><a href="#">Defect #:<strong>${row[INDEX.DEFECTID]}</strong></a>: ${row[INDEX.SUMMARY]}</h2>
-		<h4>Status: <strong>${row[INDEX.STATUS]}</strong></h4>
-		<h4>Assigned: <strong>${row[INDEX.ASSIGNED]}</strong> Detected By: <strong>${row[INDEX.DETECTED]}</strong></h4>
-		<h4>Description:</h4><p class="desc">${row[INDEX.DESC]}</p>
-		<h4>Comments:</h4><p class="comments">${row[INDEX.COMMENTS]}</p>
-		<div class="more">more info</div>
-		<hr/>
-	</div>
-	`
+	
+	if (selAssigned.size) {
+		assignedMatch = selAssigned.has(row[INDEX.ASSIGNED]) == true
+		// console.log(row[INDEX.ASSIGNED], selAssigned, proceed)
+	}
+
+	if (condition == 0){
+		proceed = statusMatch || assignedMatch
+	}
+	else {
+		proceed = statusMatch && assignedMatch
+	}
+
+	if (proceed == false) { return "" }
+
+	var templateToUse = localStorage.getItem("template") || "0"
+
+	if (templateToUse == 0) {
+		template = `
+		<div class="defect">
+			<h2><a href="#">Defect #:<strong>${row[INDEX.DEFECTID]}</strong></a>: ${row[INDEX.SUMMARY]}</h2>
+			<h4>Status: <strong>${row[INDEX.STATUS]}</strong></h4>
+			<h4>Assigned: <strong>${row[INDEX.ASSIGNED]}</strong> Detected By: <strong>${row[INDEX.DETECTED]}</strong></h4>
+			<h4>Description:</h4><p class="desc">${row[INDEX.DESC]}</p>
+			<h4>Comments:</h4><p class="comments">${row[INDEX.COMMENTS]}</p>
+			<div class="more">more info</div>
+			<hr/>
+		</div>
+		`
+
+	}
+	else {
+		template = `<li> ${row[INDEX.DEFECTID]} : ${row[INDEX.SUMMARY]} </li>`
+	}
+
+//not efficient as it is updated everytime
+	localStorage.setItem("template", templateToUse)
+	localStorage.setItem("orOrand", condition)
+	
+
+	// template = `<li> ${row[INDEX.DEFECTID]} : ${row[INDEX.SUMMARY]} </li>`
+
+	// filterIndex.forEach((el, idx) => {
+	// 	console.log(el, idx)
+	// 	filteredMap[idx].push(row[el])
+	// 	// console.log(row[el])
+	// });
+
+	assignedList.add(row[INDEX.ASSIGNED])
+	statusList.add(row[INDEX.STATUS])
+	
 	return template
+}
+
+
+function filterOptions(statusList, assignedList) {
+	
+	var filters = ""
+
+	statusList.forEach( el => {
+		filters += `<input type="checkbox" onchange="filterupdated(this)" value="0-${el}" id="0-${el}"><label for="0-${el}"> ${el}</label><br />`	
+	})
+
+	assignedList.forEach( el => {
+		filters += `<input type="checkbox" onchange="filterupdated(this)" value="1-${el}" id="1-${el}"><label for="1-${el}"> ${el}</label><br />`	
+	})
+	
+
+	document.querySelector('#filterList').innerHTML = filters
+}
+
+function filterupdated(e) {
+	// console.log(e.value, e.checked)
+	var filterOption = e.value.split("-")
+	if (filterOption.length == 2) {
+		//status list
+		if(filterOption[0] == 0) {
+			if(e.checked == true){
+				selStatus.add(filterOption[1])
+			}
+			else{
+				selStatus.delete(filterOption[1])				
+			}
+		}
+		else if(filterOption[0] == 1) {
+			if(e.checked == true){
+				selAssigned.add(filterOption[1])
+			}
+			else{
+				selAssigned.delete(filterOption[1])				
+			}
+		}
+	}
+
+	// console.log(selStatus, selAssigned)
+	populateContent(parsedJSON)
+}
+
+if(parsedJSON){
+	presentReadable(parsedJSON)
 }
 	
 </script>
