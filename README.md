@@ -5,7 +5,7 @@ A single purpose webpage to view my xlsx export to view them in a readable forma
 A quick hack of [sheetjs](https://github.com/SheetJS/sheetjs) sample code to meet my requirement.
 
 
-Try downloading this [sample excel](assets/Readable QC Viewer-Sample.xlsx) and drop on the page - [https://palaniraja.github.io/qcviewer](https://palaniraja.github.io/qcviewer)
+Try downloading this [sample excel](Readable-QC-Viewer-Sample.xlsx) and drop on the page - [https://palaniraja.github.io/qcviewer](https://palaniraja.github.io/qcviewer)
 
 
 ### localstorage
